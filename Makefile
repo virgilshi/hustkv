@@ -21,7 +21,7 @@ $(shell CC="$(CC)" CXX="$(CXX)" TARGET_OS="$(TARGET_OS)" \
 include build_config.mk
 
 TESTS = \
-	db/autocompact_test \
+	#db/autocompact_test \
 	db/c_test \
 	db/corruption_test \
 	db/db_test \
@@ -57,14 +57,20 @@ PROGNAMES := $(notdir $(TESTS) $(UTILS))
 
 # On Linux may need libkyotocabinet-dev for dependency.
 BENCHMARKS = \
-	doc/bench/db_bench_sqlite3 \
-	doc/bench/db_bench_tree_db
+	# doc/bench/db_bench_sqlite3 \
+	# doc/bench/db_bench_tree_db
 
 CFLAGS += -I. -I./include $(PLATFORM_CCFLAGS) $(OPT)
 CXXFLAGS += -I. -I./include $(PLATFORM_CXXFLAGS) $(OPT)
 
 LDFLAGS += $(PLATFORM_LDFLAGS)
-LIBS += $(PLATFORM_LIBS)
+# LIBS += $(PLATFORM_LIBS)
+LIBSLOCAL += $(PLATFORM_LIBS) # avoid conflicting with spdk LIBS
+
+SPDK_DIR ?= ../spdk
+SPDK_ROOT_DIR := $(abspath $(SPDK_DIR))
+
+include spdk/spdk.leveldb.mk
 
 SIMULATOR_OUTDIR=out-ios-x86
 DEVICE_OUTDIR=out-ios-arm
@@ -98,7 +104,7 @@ SHARED_MEMENVOBJECTS := $(addprefix $(SHARED_OUTDIR)/, $(MEMENV_SOURCES:.cc=.o))
 
 TESTUTIL := $(STATIC_OUTDIR)/util/testutil.o
 TESTHARNESS := $(STATIC_OUTDIR)/util/testharness.o $(TESTUTIL)
-TEST_STATIC_OBJS := $(STATIC_OUTDIR)/port/port_posix.o $(STATIC_OUTDIR)/util/crc32c.o $(STATIC_OUTDIR)/util/histogram.o
+TEST_STATIC_OBJS := $(STATIC_OUTDIR)/port/port_posix.o $(STATIC_OUTDIR)/util/crc32c.o $(STATIC_OUTDIR)/util/histogram.o $(STATIC_OUTDIR)/spdk/env_spdk.o
 
 STATIC_TESTOBJS := $(addprefix $(STATIC_OUTDIR)/, $(addsuffix .o, $(TESTS)))
 STATIC_UTILOBJS := $(addprefix $(STATIC_OUTDIR)/, $(addsuffix .o, $(UTILS)))
@@ -138,7 +144,7 @@ SHARED_MEMENVLIB = $(SHARED_OUTDIR)/libmemenv.a
 endif
 
 $(SHARED_OUTDIR)/$(SHARED_LIB3): $(SHARED_LIBOBJECTS)
-	$(CXX) $(LDFLAGS) $(PLATFORM_SHARED_LDFLAGS)$(SHARED_LIB2) $(SHARED_LIBOBJECTS) -o $(SHARED_OUTDIR)/$(SHARED_LIB3) $(LIBS)
+	$(CXX) $(LDFLAGS) $(PLATFORM_SHARED_LDFLAGS)$(SHARED_LIB2) $(SHARED_LIBOBJECTS) -o $(SHARED_OUTDIR)/$(SHARED_LIB3) $(LIBSLOCAL)
 
 endif  # PLATFORM_SHARED_EXT
 
@@ -170,13 +176,17 @@ $(STATIC_OUTDIR)/table: | $(STATIC_OUTDIR)
 $(STATIC_OUTDIR)/util: | $(STATIC_OUTDIR)
 	mkdir $@
 
+$(STATIC_OUTDIR)/spdk: | $(STATIC_OUTDIR)
+	mkdir $@
+
 .PHONY: STATIC_OBJDIRS
 STATIC_OBJDIRS: \
 	$(STATIC_OUTDIR)/db \
 	$(STATIC_OUTDIR)/port \
 	$(STATIC_OUTDIR)/table \
 	$(STATIC_OUTDIR)/util \
-	$(STATIC_OUTDIR)/helpers/memenv
+	$(STATIC_OUTDIR)/helpers/memenv \
+	$(STATIC_OUTDIR)/spdk
 
 $(SHARED_OUTDIR):
 	mkdir $@
@@ -196,13 +206,17 @@ $(SHARED_OUTDIR)/table: | $(SHARED_OUTDIR)
 $(SHARED_OUTDIR)/util: | $(SHARED_OUTDIR)
 	mkdir $@
 
+$(SHARED_OUTDIR)/spdk: | $(SHARED_OUTDIR)
+	mkdir $@
+
 .PHONY: SHARED_OBJDIRS
 SHARED_OBJDIRS: \
 	$(SHARED_OUTDIR)/db \
 	$(SHARED_OUTDIR)/port \
 	$(SHARED_OUTDIR)/table \
 	$(SHARED_OUTDIR)/util \
-	$(SHARED_OUTDIR)/helpers/memenv
+	$(SHARED_OUTDIR)/helpers/memenv \
+	$(SHARED_OUTDIR)/spdk
 
 $(DEVICE_OUTDIR):
 	mkdir $@
@@ -300,7 +314,7 @@ $(SHARED_MEMENVLIB):$(SHARED_MEMENVOBJECTS)
 	$(AR) -rs $@ $(SHARED_MEMENVOBJECTS)
 
 $(STATIC_OUTDIR)/db_bench:db/db_bench.cc $(STATIC_LIBOBJECTS) $(TESTUTIL)
-	$(CXX) $(LDFLAGS) $(CXXFLAGS) db/db_bench.cc $(STATIC_LIBOBJECTS) $(TESTUTIL) -o $@ $(LIBS)
+	$(CXX) $(LDFLAGS) $(CXXFLAGS) db/db_bench.cc $(STATIC_LIBOBJECTS) $(TESTUTIL) -o $@ $(LIBSLOCAL)
 
 $(STATIC_OUTDIR)/db_bench_sqlite3:doc/bench/db_bench_sqlite3.cc $(STATIC_LIBOBJECTS) $(TESTUTIL)
 	$(CXX) $(LDFLAGS) $(CXXFLAGS) doc/bench/db_bench_sqlite3.cc $(STATIC_LIBOBJECTS) $(TESTUTIL) -o $@ -lsqlite3 $(LIBS)
@@ -309,7 +323,7 @@ $(STATIC_OUTDIR)/db_bench_tree_db:doc/bench/db_bench_tree_db.cc $(STATIC_LIBOBJE
 	$(CXX) $(LDFLAGS) $(CXXFLAGS) doc/bench/db_bench_tree_db.cc $(STATIC_LIBOBJECTS) $(TESTUTIL) -o $@ -lkyotocabinet $(LIBS)
 
 $(STATIC_OUTDIR)/leveldbutil:db/leveldbutil.cc $(STATIC_LIBOBJECTS)
-	$(CXX) $(LDFLAGS) $(CXXFLAGS) db/leveldbutil.cc $(STATIC_LIBOBJECTS) -o $@ $(LIBS)
+	$(CXX) $(LDFLAGS) $(CXXFLAGS) db/leveldbutil.cc $(STATIC_LIBOBJECTS) -o $@ $(LIBSLOCAL)
 
 $(STATIC_OUTDIR)/arena_test:util/arena_test.cc $(STATIC_LIBOBJECTS) $(TESTHARNESS)
 	$(CXX) $(LDFLAGS) $(CXXFLAGS) util/arena_test.cc $(STATIC_LIBOBJECTS) $(TESTHARNESS) -o $@ $(LIBS)
@@ -390,10 +404,10 @@ $(STATIC_OUTDIR)/memenv_test:$(STATIC_OUTDIR)/helpers/memenv/memenv_test.o $(STA
 	$(XCRUN) $(CXX) $(LDFLAGS) $(STATIC_OUTDIR)/helpers/memenv/memenv_test.o $(STATIC_OUTDIR)/libmemenv.a $(STATIC_OUTDIR)/libleveldb.a $(TESTHARNESS) -o $@ $(LIBS)
 
 $(SHARED_OUTDIR)/db_bench:$(SHARED_OUTDIR)/db/db_bench.o $(SHARED_LIBS) $(TESTUTIL) $(TEST_STATIC_OBJS)
-	$(XCRUN) $(CXX) $(LDFLAGS) $(CXXFLAGS) $(PLATFORM_SHARED_CFLAGS) $(SHARED_CXXFLAGS) $(SHARED_OUTDIR)/db/db_bench.o $(TESTUTIL) $(TEST_STATIC_OBJS) $(SHARED_OUTDIR)/$(SHARED_LIB3) -o $@ $(LIBS)
+	$(XCRUN) $(CXX) $(LDFLAGS) $(CXXFLAGS) $(PLATFORM_SHARED_CFLAGS) $(SHARED_CXXFLAGS) $(SHARED_OUTDIR)/db/db_bench.o $(TESTUTIL) $(TEST_STATIC_OBJS) $(SHARED_OUTDIR)/$(SHARED_LIB3) -o $@ $(LIBSLOCAL)
 
 $(SHARED_OUTDIR)/c_test:$(SHARED_OUTDIR)/db/c_test.o $(SHARED_LIBS) $(TESTUTIL) $(TEST_STATIC_OBJS)
-	$(XCRUN) $(CXX) $(LDFLAGS) $(CXXFLAGS) $(PLATFORM_SHARED_CFLAGS) $(SHARED_CXXFLAGS) $(SHARED_OUTDIR)/db/c_test.o $(TESTUTIL) $(TEST_STATIC_OBJS) $(SHARED_OUTDIR)/$(SHARED_LIB3) -o $@ $(LIBS)
+	$(XCRUN) $(CXX) $(LDFLAGS) $(CXXFLAGS) $(PLATFORM_SHARED_CFLAGS) $(SHARED_CXXFLAGS) $(SHARED_OUTDIR)/db/c_test.o $(TESTUTIL) $(TEST_STATIC_OBJS) $(SHARED_OUTDIR)/$(SHARED_LIB3) -o $@ $(LIBSLOCAL)
 
 .PHONY: run-shared-db_bench
 run-shared-db_bench: $(SHARED_OUTDIR)/db_bench

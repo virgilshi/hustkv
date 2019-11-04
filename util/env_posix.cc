@@ -102,7 +102,9 @@ class PosixSequentialFile: public SequentialFile {
 
  public:
   PosixSequentialFile(const std::string& fname, int fd)
-      : filename_(fname), fd_(fd) {}
+      : filename_(fname), fd_(fd) {
+        printf("PosixSequentialFile: %s, %d\n", fname.c_str(), fd);
+      }
   virtual ~PosixSequentialFile() { close(fd_); }
 
   virtual Status Read(size_t n, Slice* result, char* scratch) {
@@ -729,7 +731,12 @@ void PosixEnv::StartThread(void (*function)(void* arg), void* arg) {
 
 static pthread_once_t once = PTHREAD_ONCE_INIT;
 static Env* default_env;
-static void InitDefaultEnv() { default_env = new PosixEnv; }
+static void InitDefaultEnv() { 
+  default_env = new PosixEnv; 
+
+  // start to spdk init thread once
+  SpdkInitializeThread();
+}
 
 void EnvPosixTestHelper::SetReadOnlyFDLimit(int limit) {
   assert(default_env == NULL);
