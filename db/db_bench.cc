@@ -117,8 +117,8 @@ static const char* FLAGS_db = NULL;
 // specify spdk(configure file), spdk_bdev(spdk device name), 
 // spdk_cache_size(spdk blobfs cache's size to use)
 static const char* FLAGS_spdk = NULL;
-static const char* FlAGS_spdk_bdev = NULL;
-static const int FLAGS_spdk_cache_size = 0;
+static const char* FLAGS_spdk_bdev = NULL;
+static int FLAGS_spdk_cache_size = 4096;
 
 namespace leveldb {
 
@@ -1007,10 +1007,10 @@ int main(int argc, char** argv) {
       FLAGS_db = argv[i] + 5;
     } else if (strncmp(argv[i], "--spdk=", 7) == 0) {
       FLAGS_spdk = argv[i] + 7;
-    } else if (strncmp(argv[i], "--spdk_bdev=", 11) == 0) {
-      FLAGS_db = argv[i] + 11;
+    } else if (strncmp(argv[i], "--spdk_bdev=", 12) == 0) {
+      FLAGS_spdk_bdev = argv[i] + 12;
     } else if (sscanf(argv[i], "--spdk_cache_size=%d%c", &n, &junk) == 1) {
-      FLAGS_cache_size = n;
+      FLAGS_spdk_cache_size = n;
     } else {
       fprintf(stderr, "Invalid flag '%s'\n", argv[i]);
       exit(1);
@@ -1018,14 +1018,6 @@ int main(int argc, char** argv) {
   }
 
   leveldb::g_env = leveldb::Env::Default();
-  if (strlen(FLAGS_spdk)) {
-    leveldb::g_env = leveldb::NewSpdkEnv(leveldb::Env::Default(), FLAGS_db, FLAGS_spdk, FlAGS_spdk_bdev, FLAGS_cache_size);
-    if (leveldb::g_env == NULL) {
-      fprintf(stderr, "Could not load SPDK blobfs - check that SPDK mkfs was run "
-                      "against block device %s.\n", FlAGS_spdk_bdev);
-      exit(1);
-    }
-  }
 
   // Choose a location for the test database if none given with --db=<path>
   if (FLAGS_db == NULL) {
@@ -1034,6 +1026,15 @@ int main(int argc, char** argv) {
       FLAGS_db = default_db_path.c_str();
   }
 
+  if (strlen(FLAGS_spdk)) {
+    leveldb::g_env = leveldb::NewSpdkEnv(leveldb::Env::Default(), FLAGS_db, FLAGS_spdk, FLAGS_spdk_bdev, FLAGS_spdk_cache_size);
+    if (leveldb::g_env == NULL) {
+      fprintf(stderr, "Could not load SPDK blobfs - check that SPDK mkfs was run "
+                      "against block device %s.\n", FLAGS_spdk_bdev);
+      exit(1);
+    }
+  }
+  
   // leveldb::Benchmark benchmark;
   // benchmark.Run();
   leveldb::Benchmark *benchmark = new leveldb::Benchmark;

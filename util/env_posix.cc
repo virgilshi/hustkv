@@ -608,6 +608,8 @@ class PosixEnv : public Env {
   // BGThread() is the body of the background thread
   void BGThread();
   static void* BGThreadWrapper(void* arg) {
+    // start to spdk init
+    SpdkInitializeThread();
     reinterpret_cast<PosixEnv*>(arg)->BGThread();
     return NULL;
   }
@@ -733,9 +735,6 @@ static pthread_once_t once = PTHREAD_ONCE_INIT;
 static Env* default_env;
 static void InitDefaultEnv() { 
   default_env = new PosixEnv; 
-
-  // start to spdk init thread once
-  SpdkInitializeThread();
 }
 
 void EnvPosixTestHelper::SetReadOnlyFDLimit(int limit) {
