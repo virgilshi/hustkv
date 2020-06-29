@@ -1,0 +1,3 @@
+[submodule "spdk_backend"]
+	path = spdk_backend
+	url = https://github.com/virgilshi/spdk.git
